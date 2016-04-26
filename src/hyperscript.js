@@ -1,48 +1,36 @@
-import VNode from 'snabbdom/vnode'
-import is from 'snabbdom/is'
+import flatten from 'lodash.flatten'
 
-const isObservable = x => typeof x.subscribe === `function`
-
-const addNSToObservable = vNode => {
-  addNS(vNode.data, vNode.children) // eslint-disable-line
+function isNodeProperties(properties) {
+  return properties && !Array.isArray(properties) &&
+    typeof(properties) === 'object' && !properties.hasOwnProperty('vnodeSelector');
 }
 
-function addNS(data, children) {
-  data.ns = `http://www.w3.org/2000/svg`
-  if (typeof children !== `undefined` && is.array(children)) {
-    for (let i = 0; i < children.length; ++i) {
-      if (isObservable(children[i])) {
-        children[i] = children[i].tap(addNSToObservable)
-      } else {
-        addNS(children[i].data, children[i].children)
-      }
-    }
-  }
+function resolveChildren(children) {
+  return flatten(children).filter(Boolean).map(child =>
+    typeof(child) === 'string' ? h("", child) : child
+  );
 }
 
-/* eslint-disable */
-function h(sel, b, c) {
-  var data = {}, children, text, i;
-  if (arguments.length === 3) {
-    data = b;
-    if (is.array(c)) { children = c; }
-    else if (is.primitive(c)) { text = c; }
-  } else if (arguments.length === 2) {
-    if (is.array(b)) { children = b; }
-    else if (is.primitive(b)) { text = b; }
-    else { data = b; }
-  }
-  if (is.array(children)) {
-    for (i = 0; i < children.length; ++i) {
-      if (is.primitive(children[i])) children[i] = VNode(undefined, undefined, undefined, children[i]);
-    }
-  }
-  if (sel[0] === 's' && sel[1] === 'v' && sel[2] === 'g') {
-    addNS(data, children);
-  }
-  return VNode(sel, data, children, text, undefined);
-};
+function h(vnodeSelector, properties, ...children) {
+  let text;
 
-/* eslint-enable */
+  if (typeof(vnodeSelector) !== 'string') {
+    throw new Error('h() must be passed a string selector');
+  }
+
+  if (!isNodeProperties(properties)) {
+    children.unshift(properties);
+    properties = undefined;
+  }
+
+  if (children.length === 1 && typeof(children[0]) === 'string') {
+    text = (children[0] === '') ? undefined : children[0];
+    children = undefined;
+  } else if (children.length > 0) {
+    children = resolveChildren(children);
+  }
+
+  return { vnodeSelector, properties, children, text, domNode: null };
+}
 
 export default h
