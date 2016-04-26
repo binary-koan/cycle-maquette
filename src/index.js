@@ -1,9 +1,3 @@
-import * as modules from './modules'
-export {modules}
-
-import thunk from 'snabbdom/thunk'
-export {thunk}
-
 import h from './hyperscript'
 export {h}
 
