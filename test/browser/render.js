@@ -5,7 +5,7 @@ let Cycle = require('@cycle/core');
 let CycleMaquette = require('../../src');
 let Fixture89 = require('./fixtures/issue-89');
 let Rx = require('rx');
-let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver, thunk} = CycleMaquette;
+let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver} = CycleMaquette;
 
 function createRenderTarget(id = null) {
   let element = document.createElement('div');
@@ -66,39 +66,6 @@ describe('DOM Rendering', function () {
       assert.notStrictEqual(selectEl, null);
       assert.notStrictEqual(typeof selectEl, 'undefined');
       assert.strictEqual(selectEl.tagName, 'SELECT');
-      sources.dispose();
-      done();
-    });
-  });
-
-  it('should allow snabbdom Thunks in the VTree', function (done) {
-    function renderThunk(greeting) {
-      return h4('Constantly ' + greeting)
-    }
-
-    // The Cycle.js app
-    function app() {
-      return {
-        DOM: Rx.Observable.interval(10).take(5).map(i =>
-          div([
-            thunk('thunk', renderThunk, 'hello' + 0)
-          ])
-        )
-      };
-    }
-
-    // Run it
-    const {sinks, sources} = Cycle.run(app, {
-      DOM: makeDOMDriver(createRenderTarget())
-    });
-
-    // Assert it
-    sources.DOM.select(':root').observable.skip(1).take(1).subscribe(function (root) {
-      const selectEl = root.querySelector('h4');
-      assert.notStrictEqual(selectEl, null);
-      assert.notStrictEqual(typeof selectEl, 'undefined');
-      assert.strictEqual(selectEl.tagName, 'H4');
-      assert.strictEqual(selectEl.textContent, 'Constantly hello0');
       sources.dispose();
       done();
     });
