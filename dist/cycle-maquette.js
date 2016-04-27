@@ -868,6 +868,7 @@ module.exports = baseFlatten;
         }
     };
     updateDom = function (previous, vnode, projectionOptions) {
+        //console.log("updating DOM", previous, vnode);
         var domNode = previous.domNode;
         var textUpdated = false;
         if (previous === vnode) {
@@ -1695,33 +1696,23 @@ exports.makeHTMLDriver = _makeHTMLDriver.makeHTMLDriver;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.isolateSource = exports.isolateSink = undefined;
+exports.isolateSource = isolateSource;
+exports.isolateSink = isolateSink;
 
 var _utils = require("./utils");
 
-var isolateSource = function isolateSource(source_, scope) {
-  return source_.select("." + _utils.SCOPE_PREFIX + scope);
-};
+function isolateSource(source$, scope) {
+  return source$.select("." + _utils.SCOPE_PREFIX + scope);
+}
 
-var isolateSink = function isolateSink(sink, scope) {
-  return sink.map(function (vTree) {
-    if (vTree.sel.indexOf("" + _utils.SCOPE_PREFIX + scope) === -1) {
-      if (vTree.data.ns) {
-        // svg elements
-        var _vTree$data$attrs = vTree.data.attrs;
-        var attrs = _vTree$data$attrs === undefined ? {} : _vTree$data$attrs;
-
-        attrs.class = (attrs.class || "") + " " + _utils.SCOPE_PREFIX + scope;
-      } else {
-        vTree.sel = vTree.sel + "." + _utils.SCOPE_PREFIX + scope;
-      }
+function isolateSink(sink$, scope) {
+  return sink$.map(function (vTree) {
+    if (vTree.vnodeSelector.indexOf("" + _utils.SCOPE_PREFIX + scope) === -1) {
+      vTree.vnodeSelector = vTree.vnodeSelector + "." + _utils.SCOPE_PREFIX + scope;
     }
     return vTree;
   });
-};
-
-exports.isolateSink = isolateSink;
-exports.isolateSource = isolateSource;
+}
 
 },{"./utils":16}],11:[function(require,module,exports){
 "use strict";
@@ -1772,14 +1763,22 @@ function makeDOMDriver(container) {
   function DOMDriver(view$) {
     checkDOMDriverInput(view$);
 
-    // Initialize the projection with a blank text node
-    // (easier than doing it the first time the DOM is rendered)
-    var projection = _maquette.dom.append(rootElement, { vnodeSelector: "", text: "" });
+    var projection = void 0;
+    var previousVtree = void 0;
+    function updateProjection(vtree) {
+      if (projection) {
+        projection.update(vtree);
+      } else {
+        projection = _maquette.dom.append(rootElement, vtree);
+      }
+      previousVtree = vtree;
+    }
 
-    var rootElement$ = view$.flatMapLatest(_transposition.transposeVTree).do(projection.update).map(function (_ref2) {
+    var rootElement$ = view$.flatMapLatest(_transposition.transposeVTree).do(updateProjection).map(function (_ref2) {
       var domNode = _ref2.domNode;
-      return domNode;
-    }).doOnError(onError).replay(null, 1);
+      return domNode.parentNode;
+    }) // Return the container element
+    .doOnError(onError).replay(null, 1);
 
     var disposable = rootElement$.connect();
 
@@ -2162,7 +2161,7 @@ function transposeVTree(vtree) {
         children[_key] = arguments[_key];
       }
 
-      return Object.assign(vtree, { children: children });
+      return Object.assign({}, vtree, { children: children });
     });
   } else if (typeof vtree === "object") {
     return _rx2.default.Observable.just(vtree);
