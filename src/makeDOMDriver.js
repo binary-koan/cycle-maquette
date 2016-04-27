@@ -1,39 +1,10 @@
-import {init} from 'snabbdom'
-import h from 'snabbdom/h'
-import classNameFromVNode from 'snabbdom-selector/lib/classNameFromVNode'
-import selectorParser from 'snabbdom-selector/lib/selectorParser'
+import {dom} from "maquette"
 
 import {domSelectorParser} from './utils'
-import defaultModules from './modules'
 import {transposeVTree} from './transposition'
 import {isolateSink, isolateSource} from './isolate'
 import {makeElementSelector} from './select'
 import {makeEventsSelector} from './events'
-
-function makeVNodeWrapper(rootElement) {
-  return function vNodeWrapper(vNode) {
-    const {tagName: selectorTagName, id: selectorId} = selectorParser(vNode.sel)
-    const vNodeClassName = classNameFromVNode(vNode)
-    const {data: vNodeData = {}} = vNode
-    const {props: vNodeDataProps = {}} = vNodeData
-    const {id: vNodeId = selectorId} = vNodeDataProps
-
-    const isVNodeAndRootElementIdentical =
-      vNodeId.toUpperCase() === rootElement.id.toUpperCase() &&
-      selectorTagName.toUpperCase() === rootElement.tagName.toUpperCase() &&
-      vNodeClassName.toUpperCase() === rootElement.className.toUpperCase()
-
-    if (isVNodeAndRootElementIdentical) {
-      return vNode
-    }
-
-    const {tagName, id, className} = rootElement
-    const elementId = id ? `#${id}` : ``
-    const elementClassName = className ?
-      `.${className.split(` `).join(`.`)}` : ``
-    return h(`${tagName}${elementId}${elementClassName}`, {}, [vNode])
-  }
-}
 
 function DOMDriverInputGuard(view$) {
   if (!view$ || typeof view$.subscribe !== `function`) {
@@ -51,21 +22,13 @@ function defaultOnErrorFn(msg) {
 }
 
 const defaults = {
-  modules: defaultModules,
   onError: defaultOnErrorFn,
 }
 
 function makeDOMDriver(container, {
-  modules = defaultModules,
   onError = defaultOnErrorFn,
 } = defaults) {
-  const patch = init(modules)
   const rootElement = domSelectorParser(container)
-
-  if (!Array.isArray(modules)) {
-    throw new Error(`Optional modules option must be ` +
-     `an array for snabbdom modules`)
-  }
 
   if (typeof onError !== `function`) {
     throw new Error(`You provided an \`onError\` to makeDOMDriver but it was ` +
@@ -75,11 +38,16 @@ function makeDOMDriver(container, {
   function DOMDriver(view$) {
     DOMDriverInputGuard(view$)
 
+    // Initialize the projection with a blank text node
+    // (easier than doing it the first time the DOM is rendered)
+    const projection = dom.append(rootElement, { vnodeSelector: "", text: "" });
+
     const rootElement$ = view$
       .flatMapLatest(transposeVTree)
-      .map(makeVNodeWrapper(rootElement))
-      .scan(patch, rootElement)
-      .map(({elm}) => elm)
+
+    const disposableUpdate = rootElement$
+      .do(projection.update)
+      .map(({domNode}) => domNode)
       .doOnError(onError)
       .replay(null, 1)
 
