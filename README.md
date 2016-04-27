@@ -1,50 +1,26 @@
-# cycle-snabbdom [![Build Status](https://travis-ci.org/TylorS/cycle-snabbdom.svg?branch=master)](https://travis-ci.org/TylorS/cycle-snabbdom)
-Alternative DOM driver utilizing the [snabbdom](https://github.com/paldepind/snabbdom) library
+# cycle-maquette [![Build Status](https://travis-ci.org/binary-koan/cycle-maquette.svg?branch=master)](https://travis-ci.org/binary-koan/cycle-maquette)
+Alternative DOM driver utilizing the [maquette](http://maquettejs.org) library
 
 # Install
 ```js
-$ npm install cycle-snabbdom
+$ npm install cycle-maquette
 ```
 ## API
 
-##### makeDOMDriver(container: string|Element, {modules?: Array<SnabbdomModules>})
-
+##### makeDOMDriver(container: string|Element)
 ```js
-import {makeDOMDriver} from 'cycle-snabbdom'
+import { makeDOMDriver } from "cycle-maquette";
 ```
 
 ##### makeHTMLDriver()
 ```js
-import {makeHTMLDriver} from 'cycle-snabbdom'
-```
-##### h - thunk - hyperscript-helpers
-Shorcuts to `snabbdom/h`, `snabbdom/thunk` and `hyperscript-helpers`
-```js
-import {h, thunk, div, span, h4} from 'cycle-snabbdom'
+import { makeHTMLDriver } from "cycle-maquette";
 ```
 
-##### modules : Array<SnabbdomModules>
-
-Shortcut to snabbdom modules.
-
+##### h + hyperscript-helpers
+Shorcuts to `maquette/h` and `hyperscript-helpers`
 ```js
-import Cycle from '@cycle/core'
-import {modules, makeDOMDriver} from 'cycle-snabbdom'
-const {
-  StyleModule, PropsModule,
-  AttrsModule, ClassModule,
-  HeroModule, EventsModule,
-} = modules
-...
-
-Cycle.run(main, {
-  DOM: makeDOMDriver('#app', {modules: [
-    StyleModule, PropsModule,
-    AttrsModule, ClassModule,
-    HeroModule, EventsModule
-  ]})
-})
-
+import { h, div, span, h4 } from "cycle-maquette";
 ```
 
 ##### mockDOMSource()
