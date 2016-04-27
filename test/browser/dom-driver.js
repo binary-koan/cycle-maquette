@@ -44,13 +44,13 @@ describe('makeDOMDriver', function () {
   it('should not accept a selector to an unknown element as input', function () {
     assert.throws(function () {
       makeDOMDriver('#nonsenseIdToNothing');
-    }, /Given container is not a DOM element neither a selector string/);
+    }, /Given container is neither a DOM element nor a selector string/);
   });
 
   it('should not accept a number as input', function () {
     assert.throws(function () {
       makeDOMDriver(123);
-    }, /Given container is not a DOM element neither a selector string/);
+    }, /Given container is neither a DOM element nor a selector string/);
   });
 
   it('should accept function as error callback', function () {

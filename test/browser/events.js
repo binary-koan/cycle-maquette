@@ -229,11 +229,13 @@ describe('DOMSource.events()', function () {
   it('should catch interaction events from future elements', function (done) {
     function app() {
       return {
-        DOM: Rx.Observable.concat(
-          Rx.Observable.just(h2('.blesh', 'Blesh')),
-          Rx.Observable.just(h3('.blish', 'Blish')).delay(100),
-          Rx.Observable.just(h4('.blosh', 'Blosh')).delay(100)
-        )
+        DOM: Rx.Observable.just(div(".test", [
+          Rx.Observable.concat(
+            Rx.Observable.just(h2('.blesh', 'Blesh')),
+            Rx.Observable.just(h3('.blish', 'Blish')).delay(100),
+            Rx.Observable.just(h4('.blosh', 'Blosh')).delay(100)
+          )
+        ]))
       };
     }
 

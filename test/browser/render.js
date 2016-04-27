@@ -2,10 +2,10 @@
 /* global describe, it, beforeEach */
 let assert = require('assert');
 let Cycle = require('@cycle/core');
-let CycleMaquette = require('../../src');
+let CycleDOM = require('../../src');
 let Fixture89 = require('./fixtures/issue-89');
 let Rx = require('rx');
-let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver} = CycleMaquette;
+let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver} = CycleDOM;
 
 function createRenderTarget(id = null) {
   let element = document.createElement('div');
@@ -48,7 +48,7 @@ describe('DOM Rendering', function () {
     function app() {
       return {
         DOM: Rx.Observable.just(
-          <select className="my-class">
+          <select class="my-class">
             <option value="foo">Foo</option>
             <option value="bar">Bar</option>
             <option value="baz">Baz</option>
@@ -198,11 +198,11 @@ describe('DOM Rendering', function () {
   it('should render a SVG VTree with a child Observable<VTree>', function (done) {
     function app() {
       const child$ = Rx.Observable.just(
-        h('g', {attrs: {class: 'child'}}, [])
+        h('g.child', [])
       ).delay(80);
       return {
         DOM: Rx.Observable.just(h('svg', {}, [
-          h('g', {}, []),
+          h('g', []),
           child$
         ]))
       };

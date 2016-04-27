@@ -135,7 +135,7 @@ describe('isolateSink', function () {
         Rx.Observable.just(2).delay(50)
       ).flatMapLatest(i => i === 1 ? first$ : second$);
       return {
-        DOM: switched$
+        DOM: Rx.Observable.just(div("", [switched$]))
       };
     }
 
@@ -363,10 +363,8 @@ describe('isolation', function () {
 
      const svgTriangle = h('svg', {attrs: {width: 150, height: 150}}, [
        h('polygon', {
-         attrs: {
-           class: 'triangle',
-           points: '20 0 20 150 150 20'
-         }
+         classes: { triangle: true },
+         points: '20 0 20 150 150 20'
        }),
      ]);
 
