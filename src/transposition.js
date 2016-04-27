@@ -11,7 +11,7 @@ function transposeVTree(vtree) {
   } else if (Array.isArray(vtree.children) && vtree.children.length > 0) {
     return Rx.Observable.combineLatest(
       vtree.children.map(transposeVTree),
-      (...children) => Object.assign(vtree, { children })
+      (...children) => Object.assign({}, vtree, { children })
     );
   } else if (typeof vtree === `object`) {
     return Rx.Observable.just(vtree);

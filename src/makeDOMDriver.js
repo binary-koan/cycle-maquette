@@ -35,14 +35,21 @@ function makeDOMDriver(container, {
   function DOMDriver(view$) {
     checkDOMDriverInput(view$);
 
-    // Initialize the projection with a blank text node
-    // (easier than doing it the first time the DOM is rendered)
-    const projection = dom.append(rootElement, { vnodeSelector: "", text: "" });
+    let projection;
+    let previousVtree;
+    function updateProjection(vtree) {
+      if (projection) {
+        projection.update(vtree);
+      } else {
+        projection = dom.append(rootElement, vtree);
+      }
+      previousVtree = vtree;
+    }
 
     const rootElement$ = view$
       .flatMapLatest(transposeVTree)
-      .do(projection.update)
-      .map(({ domNode }) => domNode)
+      .do(updateProjection)
+      .map(({ domNode }) => domNode.parentNode) // Return the container element
       .doOnError(onError)
       .replay(null, 1);
 
