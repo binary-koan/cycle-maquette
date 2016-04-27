@@ -2,11 +2,10 @@
 /* global describe, it, beforeEach */
 let assert = require('assert');
 let Cycle = require('@cycle/core');
-let CycleDOM = require('../../src');
+let CycleMaquette = require('../../src');
 let Fixture89 = require('./fixtures/issue-89');
 let Rx = require('rx');
-let {html} = require('snabbdom-jsx');
-let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver, thunk} = CycleDOM;
+let {h, div, input, p, span, h2, h3, h4, select, option, makeDOMDriver, thunk} = CycleMaquette;
 
 function createRenderTarget(id = null) {
   let element = document.createElement('div');

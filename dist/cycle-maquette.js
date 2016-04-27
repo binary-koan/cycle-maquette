@@ -1744,8 +1744,8 @@ var _select = require("./select");
 var _events = require("./events");
 
 function checkDOMDriverInput(view$) {
-  if (!view$ || typeof view$.subscribe !== "function") {
-    throw new Error("The DOM driver function expects as input an " + "Observable of virtual DOM elements");
+  if (!(0, _utils.isObservable)(view$)) {
+    throw new Error("The DOM driver function expects as input an Observable of virtual DOM elements");
   }
 }
 
@@ -2145,12 +2145,14 @@ var _rx = (typeof window !== "undefined" ? window['Rx'] : typeof global !== "und
 
 var _rx2 = _interopRequireDefault(_rx);
 
+var _utils = require("./utils");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function transposeVTree(vtree) {
   if (!vtree) {
     return null;
-  } else if (typeof vtree.subscribe === "function") {
+  } else if ((0, _utils.isObservable)(vtree)) {
     return vtree.flatMapLatest(transposeVTree);
   } else if (vtree.text) {
     return _rx2.default.Observable.just(vtree);
@@ -2172,7 +2174,7 @@ function transposeVTree(vtree) {
 exports.transposeVTree = transposeVTree;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],16:[function(require,module,exports){
+},{"./utils":16}],16:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2181,7 +2183,14 @@ Object.defineProperty(exports, "__esModule", {
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
 
-var SCOPE_PREFIX = "cycle-scope-";
+exports.isObservable = isObservable;
+exports.isElement = isElement;
+exports.domSelectorParser = domSelectorParser;
+var SCOPE_PREFIX = exports.SCOPE_PREFIX = "cycle-scope-";
+
+function isObservable(obj) {
+  return obj && typeof obj.subscribe === "function";
+}
 
 function isElement(obj) {
   if ((typeof HTMLElement === "undefined" ? "undefined" : _typeof(HTMLElement)) === "object") {
@@ -2191,7 +2200,7 @@ function isElement(obj) {
   return obj && (typeof obj === "undefined" ? "undefined" : _typeof(obj)) === "object" && (obj.nodeType === 1 || obj.nodeType === 11) && typeof obj.nodeName === "string";
 }
 
-var domSelectorParser = function domSelectorParser(selectors) {
+function domSelectorParser(selectors) {
   var domElement = typeof selectors === "string" ? document.querySelector(selectors) : selectors;
 
   if (typeof domElement === "string" && domElement === null) {
@@ -2200,10 +2209,7 @@ var domSelectorParser = function domSelectorParser(selectors) {
     throw new Error("Given container is neither a DOM element nor a selector string.");
   }
   return domElement;
-};
-
-exports.domSelectorParser = domSelectorParser;
-exports.SCOPE_PREFIX = SCOPE_PREFIX;
+}
 
 },{}]},{},[9])(9)
 });
