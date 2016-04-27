@@ -1,9 +1,10 @@
 import Rx from "rx";
+import { isObservable } from "./utils";
 
 function transposeVTree(vtree) {
   if (!vtree) {
     return null;
-  } else if (typeof(vtree.subscribe) === `function`) {
+  } else if (isObservable(vtree)) {
     return vtree.flatMapLatest(transposeVTree);
   } else if (vtree.text) {
     return Rx.Observable.just(vtree);

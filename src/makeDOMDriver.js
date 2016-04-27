@@ -1,15 +1,16 @@
 import { dom } from "maquette";
 
-import { domSelectorParser } from "./utils";
+import { domSelectorParser, isObservable } from "./utils";
 import { transposeVTree } from "./transposition";
 import { isolateSink, isolateSource } from "./isolate";
 import { makeElementSelector } from "./select";
 import { makeEventsSelector } from "./events";
 
 function checkDOMDriverInput(view$) {
-  if (!view$ || typeof view$.subscribe !== "function") {
-    throw new Error("The DOM driver function expects as input an " +
-      "Observable of virtual DOM elements");
+  if (!isObservable(view$)) {
+    throw new Error(
+      "The DOM driver function expects as input an Observable of virtual DOM elements"
+    );
   }
 }
 
