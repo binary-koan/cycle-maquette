@@ -1,5 +1,5 @@
-import Rx from 'rx'
-import {transposeVTree} from './transposition'
+import Rx from "rx";
+import { transposeVTree } from "./transposition";
 
 const VOID_ELEMENTS = [
   "area",
@@ -17,17 +17,17 @@ const VOID_ELEMENTS = [
   "source",
   "track",
   "wbr"
-]
+];
 
 function makeBogusSelect() {
   return function select() {
     return {
       observable: Rx.Observable.empty(),
       events() {
-        return Rx.Observable.empty()
-      },
-    }
-  }
+        return Rx.Observable.empty();
+      }
+    };
+  };
 }
 
 function truthyValuedKeys(object) {
@@ -54,33 +54,34 @@ function makeHTMLDriver() {
   }
 
   function mergeProperties(id, classList, properties = {}) {
-    let html, attrs = { id };
+    const attrs = { id };
+    let html;
 
-    for (let propName of Object.keys(properties)) {
-      let propValue = properties[propName];
+    Object.keys(properties).forEach(propName => {
+      const propValue = properties[propName];
 
-      if (propName === 'key' || propValue === null || propValue === undefined) {
-        continue;
-      } else if (propName === 'class') {
+      if (propName === "key" || propValue === null || propValue === undefined) {
+        return;
+      } else if (propName === "class") {
         propValue.split(" ").forEach(className => classList.push(className));
-      } else if (propName === 'classes') {
+      } else if (propName === "classes") {
         // object with string keys and boolean values
         truthyValuedKeys(propValue).forEach(className => classList.push(className));
-      } else if (propName === 'styles') {
+      } else if (propName === "styles") {
         // object with string keys and string (!) values
         attrs.style = Object.keys(propValue).map(name =>
           `${name}: ${propValue[name]};`
         );
       } else {
-        if (typeof(propValue) === 'function') {
-          continue;
-        } else if (propName === 'innerHTML') {
+        if (typeof(propValue) === "function") {
+          return;
+        } else if (propName === "innerHTML") {
           html = propValue;
         } else {
           attrs[propName] = propValue;
         }
       }
-    }
+    });
 
     attrs.class = classList.join(" ");
 
@@ -88,45 +89,44 @@ function makeHTMLDriver() {
   }
 
   function vnodeToHTML(vnode) {
-    // console.log(vnode);
-    let selector = vnode.vnodeSelector;
+    const selector = vnode.vnodeSelector;
 
-    if (selector === '') {
+    if (selector === "") {
       return vnode.text;
-    } else {
-      const tagName = tagNameFromSelector(selector);
-      let { attrs, html } = mergeProperties(
-        idFromSelector(selector),
-        classListFromSelector(selector),
-        vnode.properties
-      );
-
-      if (!html) {
-        html = vnode.children ?
-          vnode.children.map(child => vnodeToHTML(child)).join("") :
-          vnode.text;
-      }
-
-      attrs = Object.keys(attrs).filter(name => attrs[name])
-        .map(attr => `${attr}="${attrs[attr]}"`).join(" ");
-
-      if (attrs.length > 0) {
-        attrs = " " + attrs;
-      }
-
-      if (VOID_ELEMENTS.indexOf(tagName) >= 0) {
-        return `<${tagName}${attrs} />`
-      } else {
-        return `<${tagName}${attrs}>${html}</${tagName}>`
-      }
     }
-  };
+
+    const tagName = tagNameFromSelector(selector);
+    let { attrs, html } = mergeProperties(
+      idFromSelector(selector),
+      classListFromSelector(selector),
+      vnode.properties
+    );
+
+    if (!html) {
+      html = vnode.children ?
+        vnode.children.map(child => vnodeToHTML(child)).join("") :
+        vnode.text;
+    }
+
+    attrs = Object.keys(attrs).filter(name => attrs[name])
+      .map(attr => `${attr}="${attrs[attr]}"`).join(" ");
+
+    if (attrs.length > 0) {
+      attrs = ` ${attrs}`;
+    }
+
+    if (VOID_ELEMENTS.indexOf(tagName) >= 0) {
+      return `<${tagName}${attrs} />`;
+    }
+
+    return `<${tagName}${attrs}>${html}</${tagName}>`;
+  }
 
   return function htmlDriver(vtree$) {
-    let output$ = vtree$.flatMapLatest(transposeVTree).last().map(vnodeToHTML)
-    output$.select = makeBogusSelect()
-    return output$
-  }
+    const output$ = vtree$.flatMapLatest(transposeVTree).last().map(vnodeToHTML);
+    output$.select = makeBogusSelect();
+    return output$;
+  };
 }
 
-export {makeHTMLDriver}
+export { makeHTMLDriver };

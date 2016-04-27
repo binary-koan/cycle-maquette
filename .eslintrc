@@ -1,11 +1,18 @@
 {
-  "extends": "eslint-config-cycle",
+  "extends": "airbnb",
   "parser": "babel-eslint",
   "env": {
     "browser": true,
     "node": true
   },
   "rules": {
-    "new-cap": 0,
+    "comma-dangle": [2, "never"],
+    "global-require": [0],
+    "max-len": [1, 100, 4],
+    "no-param-reassign": [0],
+    "no-console": [2, { allow: ["warn", "error"] }],
+    "no-confusing-arrow": [2, { "allowParens": true }],
+    "no-restricted-syntax": [2, "DebuggerStatement", "LabeledStatement", "WithStatement"],
+    "quotes": [2, "double", { "avoidEscape": true, "allowTemplateLiterals": true }],
   }
 }

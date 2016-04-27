@@ -1,42 +1,38 @@
-import {dom} from "maquette"
+import { dom } from "maquette";
 
-import {domSelectorParser} from './utils'
-import {transposeVTree} from './transposition'
-import {isolateSink, isolateSource} from './isolate'
-import {makeElementSelector} from './select'
-import {makeEventsSelector} from './events'
+import { domSelectorParser } from "./utils";
+import { transposeVTree } from "./transposition";
+import { isolateSink, isolateSource } from "./isolate";
+import { makeElementSelector } from "./select";
+import { makeEventsSelector } from "./events";
 
-function DOMDriverInputGuard(view$) {
-  if (!view$ || typeof view$.subscribe !== `function`) {
-    throw new Error(`The DOM driver function expects as input an ` +
-      `Observable of virtual DOM elements`)
+function checkDOMDriverInput(view$) {
+  if (!view$ || typeof view$.subscribe !== "function") {
+    throw new Error("The DOM driver function expects as input an " +
+      "Observable of virtual DOM elements");
   }
 }
 
 function defaultOnErrorFn(msg) {
-  if (console && console.error) {
-    console.error(msg)
-  } else {
-    console.log(msg)
-  }
+  console.error(msg);
 }
 
 const defaults = {
-  onError: defaultOnErrorFn,
-}
+  onError: defaultOnErrorFn
+};
 
 function makeDOMDriver(container, {
-  onError = defaultOnErrorFn,
+  onError = defaultOnErrorFn
 } = defaults) {
-  const rootElement = domSelectorParser(container)
+  const rootElement = domSelectorParser(container);
 
   if (typeof onError !== `function`) {
-    throw new Error(`You provided an \`onError\` to makeDOMDriver but it was ` +
-      `not a function. It should be a callback function to handle errors.`)
+    throw new Error("You provided an 'onError' to makeDOMDriver but it was " +
+      "not a function. It should be a callback function to handle errors.");
   }
 
   function DOMDriver(view$) {
-    DOMDriverInputGuard(view$)
+    checkDOMDriverInput(view$);
 
     // Initialize the projection with a blank text node
     // (easier than doing it the first time the DOM is rendered)
@@ -44,14 +40,12 @@ function makeDOMDriver(container, {
 
     const rootElement$ = view$
       .flatMapLatest(transposeVTree)
-
-    const disposableUpdate = rootElement$
       .do(projection.update)
-      .map(({domNode}) => domNode)
+      .map(({ domNode }) => domNode)
       .doOnError(onError)
-      .replay(null, 1)
+      .replay(null, 1);
 
-    const disposable = rootElement$.connect()
+    const disposable = rootElement$.connect();
 
     return {
       observable: rootElement$,
@@ -60,11 +54,11 @@ function makeDOMDriver(container, {
       events: makeEventsSelector(rootElement$),
       dispose: () => disposable.dispose(),
       isolateSink,
-      isolateSource,
-    }
+      isolateSource
+    };
   }
 
-  return DOMDriver
+  return DOMDriver;
 }
 
-export {makeDOMDriver}
+export { makeDOMDriver };

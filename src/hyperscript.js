@@ -1,21 +1,25 @@
-import flatten from 'lodash.flatten'
+import flatten from "lodash.flatten";
+
+function createTextNode(text) {
+  return { vnodeSelector: "", text };
+}
 
 function isNodeProperties(properties) {
   return properties && !Array.isArray(properties) &&
-    typeof(properties) === 'object' && !properties.hasOwnProperty('vnodeSelector');
+    typeof(properties) === "object" && !properties.hasOwnProperty("vnodeSelector");
 }
 
 function resolveChildren(children) {
   return flatten(children).filter(Boolean).map(child =>
-    typeof(child) === 'string' ? h("", child) : child
+    (typeof(child) === "string" ? createTextNode(child) : child)
   );
 }
 
 function h(vnodeSelector, properties, ...children) {
   let text;
 
-  if (typeof(vnodeSelector) !== 'string') {
-    throw new Error('h() must be passed a string selector');
+  if (typeof(vnodeSelector) !== "string") {
+    throw new Error("h() must be passed a string selector");
   }
 
   if (!isNodeProperties(properties)) {
@@ -23,8 +27,8 @@ function h(vnodeSelector, properties, ...children) {
     properties = undefined;
   }
 
-  if (children.length === 1 && typeof(children[0]) === 'string') {
-    text = (children[0] === '') ? undefined : children[0];
+  if (children.length === 1 && typeof(children[0]) === "string") {
+    text = (children[0] === "") ? undefined : children[0];
     children = undefined;
   } else if (children.length > 0) {
     children = resolveChildren(children);
@@ -33,4 +37,4 @@ function h(vnodeSelector, properties, ...children) {
   return { vnodeSelector, properties, children, text, domNode: null };
 }
 
-export default h
+export default h;
