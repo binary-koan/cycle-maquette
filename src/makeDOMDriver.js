@@ -1,10 +1,24 @@
 import { dom } from "maquette";
 
-import { domSelectorParser, isObservable } from "./utils";
-import { transposeVTree } from "./transposition";
-import { isolateSink, isolateSource } from "./isolate";
-import { makeElementSelector } from "./select";
-import { makeEventsSelector } from "./events";
+import { isElement, isObservable } from "./utils";
+import { isolateSink, isolateSource } from "./isolation";
+import transposeVTree from "./transposeVTree";
+import makeElementSelector from "./dom/makeElementSelector";
+import makeEventsSelector from "./dom/makeEventsSelector";
+
+function domSelectorParser(selectors) {
+  const domElement =
+    typeof(selectors) === "string" ?
+      document.querySelector(selectors) :
+      selectors;
+
+  if (typeof(domElement) === "string" && domElement === null) {
+    throw new Error(`Cannot render into unknown element \`${selectors}\``);
+  } else if (!isElement(domElement)) {
+    throw new Error("Given container is neither a DOM element nor a selector string.");
+  }
+  return domElement;
+}
 
 function checkDOMDriverInput(view$) {
   if (!isObservable(view$)) {
@@ -36,14 +50,12 @@ function makeDOMDriver(container, {
     checkDOMDriverInput(view$);
 
     let projection;
-    let previousVtree;
     function updateProjection(vtree) {
       if (projection) {
         projection.update(vtree);
       } else {
         projection = dom.append(rootElement, vtree);
       }
-      previousVtree = vtree;
     }
 
     const rootElement$ = view$

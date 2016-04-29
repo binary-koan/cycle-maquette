@@ -1,7 +1,7 @@
 import Rx from "rx";
 import { isObservable } from "./utils";
 
-function transposeVTree(vtree) {
+export default function transposeVTree(vtree) {
   if (!vtree) {
     return null;
   } else if (isObservable(vtree)) {
@@ -19,5 +19,3 @@ function transposeVTree(vtree) {
 
   throw new Error(`Unhandled vTree Value`);
 }
-
-export { transposeVTree };

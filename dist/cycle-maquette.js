@@ -1236,106 +1236,103 @@ function match(el, selector) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.makeEventsSelector = undefined;
+exports.default = makeElementSelector;
 
-var _fromEvent = require("./fromEvent");
+var _makeEventsSelector = require("./makeEventsSelector");
 
-var _select = require("./select");
+var _makeEventsSelector2 = _interopRequireDefault(_makeEventsSelector);
 
-var matchesSelector = void 0;
+var _selectionScopes = require("./selectionScopes");
 
-try {
-  matchesSelector = require("matches-selector");
-} catch (e) {
-  matchesSelector = function matchesSelector() {};
-}
+var _isolation = require("../isolation");
 
-var eventTypesThatDontBubble = ["load", "unload", "focus", "blur", "mouseenter", "mouseleave", "submit", "change", "reset", "timeupdate", "playing", "waiting", "seeking", "seeked", "ended", "loadedmetadata", "loadeddata", "canplay", "canplaythrough", "durationchange", "play", "pause", "ratechange", "volumechange", "suspend", "emptied", "stalled"];
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function maybeMutateEventPropagationAttributes(event) {
-  if (!event.hasOwnProperty("propagationHasBeenStopped")) {
-    (function () {
-      event.propagationHasBeenStopped = false;
-      var oldStopPropagation = event.stopPropagation;
-      event.stopPropagation = function stopPropagation() {
-        oldStopPropagation.call(this);
-        this.propagationHasBeenStopped = true;
-      };
-    })();
+var isValidString = function isValidString(param) {
+  return typeof param === "string" && param.length > 0;
+};
+
+var contains = function contains(str, match) {
+  return str.indexOf(match) > -1;
+};
+
+var isNotTagName = function isNotTagName(param) {
+  return isValidString(param) && contains(param, ".") || contains(param, "#") || contains(param, ":");
+};
+
+function sortNamespace(a, b) {
+  if (isNotTagName(a) && isNotTagName(b)) {
+    return 0;
   }
+  return isNotTagName(a) ? 1 : -1;
 }
 
-function mutateEventCurrentTarget(event, currentTargetElement) {
-  try {
-    Object.defineProperty(event, "currentTarget", {
-      value: currentTargetElement,
-      configurable: true
-    });
-  } catch (err) {
-    console.warn("please use event.ownerTarget");
-  }
-  event.ownerTarget = currentTargetElement;
+function removeDuplicates(arr) {
+  var newArray = [];
+  arr.forEach(function (element) {
+    if (newArray.indexOf(element) === -1) {
+      newArray.push(element);
+    }
+  });
+  return newArray;
 }
 
-function makeSimulateBubbling(namespace, rootEl) {
-  var isStrictlyInRootScope = (0, _select.makeIsStrictlyInRootScope)(namespace);
-  var descendantSel = namespace.join(" ");
-  var topSel = namespace.join("");
-  var roof = rootEl.parentElement;
+var getScope = function getScope(namespace) {
+  return namespace.filter(function (c) {
+    return c.indexOf(".cycle-scope") > -1;
+  });
+};
 
-  return function simulateBubbling(ev) {
-    maybeMutateEventPropagationAttributes(ev);
-    if (ev.propagationHasBeenStopped) {
-      return false;
+function makeFindElements(namespace) {
+  return function findElements(rootElement) {
+    if (namespace.join("") === "") {
+      return rootElement;
     }
-    for (var el = ev.target; el && el !== roof; el = el.parentElement) {
-      if (!isStrictlyInRootScope(el)) {
-        continue;
-      }
-      if (matchesSelector(el, descendantSel) || matchesSelector(el, topSel)) {
-        mutateEventCurrentTarget(ev, el);
-        return true;
-      }
+    var slice = Array.prototype.slice;
+
+    var scope = getScope(namespace);
+    // Uses global selector && is isolated
+    if (namespace.indexOf("*") > -1 && scope.length > 0) {
+      // grab top-level boundary of scope
+      var topNode = rootElement.querySelector(scope.join(" "));
+      // grab all children
+      var childNodes = topNode.getElementsByTagName("*");
+      return removeDuplicates([topNode].concat(slice.call(childNodes))).filter((0, _selectionScopes.makeIsStrictlyInRootScope)(namespace));
     }
-    return false;
+
+    return removeDuplicates(slice.call(rootElement.querySelectorAll(namespace.join(" "))).concat(slice.call(rootElement.querySelectorAll(namespace.join(""))))).filter((0, _selectionScopes.makeIsStrictlyInRootScope)(namespace));
   };
 }
 
-function makeEventsSelector(rootElement$, namespace) {
-  return function eventsSelector(type) {
-    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
-
-    if (typeof type !== "string") {
-      throw new Error("DOM driver's events() expects argument to be a " + "string representing the event type to listen for.");
-    }
-    var useCapture = false;
-    if (eventTypesThatDontBubble.indexOf(type) !== -1) {
-      useCapture = true;
-    }
-    if (typeof options.useCapture === "boolean") {
-      useCapture = options.useCapture;
+function makeElementSelector(rootElement$) {
+  return function elementSelector(selector) {
+    if (typeof selector !== "string") {
+      throw new Error("DOM driver's select() expects the argument to be a " + "string as a CSS selector");
     }
 
-    return rootElement$.first().flatMapLatest(function (rootElement) {
-      if (!namespace || namespace.length === 0) {
-        return (0, _fromEvent.fromEvent)(rootElement, type, useCapture);
-      }
-      var simulateBubbling = makeSimulateBubbling(namespace, rootElement);
-      return (0, _fromEvent.fromEvent)(rootElement, type, useCapture).filter(simulateBubbling);
-    }).share();
+    var namespace = this.namespace;
+    var trimmedSelector = selector.trim();
+    var childNamespace = trimmedSelector === ":root" ? namespace : namespace.concat(trimmedSelector).sort(sortNamespace);
+
+    return {
+      observable: rootElement$.map(makeFindElements(childNamespace)),
+      namespace: childNamespace,
+      select: makeElementSelector(rootElement$),
+      events: (0, _makeEventsSelector2.default)(rootElement$, childNamespace),
+      isolateSource: _isolation.isolateSource,
+      isolateSink: _isolation.isolateSink
+    };
   };
 }
 
-exports.makeEventsSelector = makeEventsSelector;
-
-},{"./fromEvent":7,"./select":14,"matches-selector":5}],7:[function(require,module,exports){
+},{"../isolation":12,"./makeEventsSelector":8,"./selectionScopes":9}],7:[function(require,module,exports){
 (function (global){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.fromEvent = undefined;
+exports.default = makeEventListener;
 
 var _rx = (typeof window !== "undefined" ? window['Rx'] : typeof global !== "undefined" ? global['Rx'] : null);
 
@@ -1385,7 +1382,7 @@ function createEventListener(_ref2) {
   return disposables;
 }
 
-function fromEvent(element, eventName) {
+function makeEventListener(element, eventName) {
   var useCapture = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
 
   return new AnonymousObservable(function (observer) {
@@ -1400,8 +1397,6 @@ function fromEvent(element, eventName) {
   }).share();
 }
 
-exports.fromEvent = fromEvent;
-
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],8:[function(require,module,exports){
 "use strict";
@@ -1409,8 +1404,138 @@ exports.fromEvent = fromEvent;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.default = makeEventsSelector;
+
+var _matchesSelector = require("matches-selector");
+
+var _matchesSelector2 = _interopRequireDefault(_matchesSelector);
+
+var _makeEventListener = require("./makeEventListener");
+
+var _makeEventListener2 = _interopRequireDefault(_makeEventListener);
+
+var _selectionScopes = require("./selectionScopes");
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var eventTypesThatDontBubble = ["load", "unload", "focus", "blur", "mouseenter", "mouseleave", "submit", "change", "reset", "timeupdate", "playing", "waiting", "seeking", "seeked", "ended", "loadedmetadata", "loadeddata", "canplay", "canplaythrough", "durationchange", "play", "pause", "ratechange", "volumechange", "suspend", "emptied", "stalled"];
+
+function maybeMutateEventPropagationAttributes(event) {
+  if (!event.hasOwnProperty("propagationHasBeenStopped")) {
+    (function () {
+      event.propagationHasBeenStopped = false;
+      var oldStopPropagation = event.stopPropagation;
+      event.stopPropagation = function stopPropagation() {
+        oldStopPropagation.call(this);
+        this.propagationHasBeenStopped = true;
+      };
+    })();
+  }
+}
+
+function mutateEventCurrentTarget(event, currentTargetElement) {
+  try {
+    Object.defineProperty(event, "currentTarget", {
+      value: currentTargetElement,
+      configurable: true
+    });
+  } catch (err) {
+    console.warn("please use event.ownerTarget");
+  }
+  event.ownerTarget = currentTargetElement;
+}
+
+function makeSimulateBubbling(namespace, rootEl) {
+  var isStrictlyInRootScope = (0, _selectionScopes.makeIsStrictlyInRootScope)(namespace);
+  var descendantSel = namespace.join(" ");
+  var topSel = namespace.join("");
+  var roof = rootEl.parentElement;
+
+  return function simulateBubbling(ev) {
+    maybeMutateEventPropagationAttributes(ev);
+    if (ev.propagationHasBeenStopped) {
+      return false;
+    }
+    for (var el = ev.target; el && el !== roof; el = el.parentElement) {
+      if (!isStrictlyInRootScope(el)) {
+        continue;
+      }
+      if ((0, _matchesSelector2.default)(el, descendantSel) || (0, _matchesSelector2.default)(el, topSel)) {
+        mutateEventCurrentTarget(ev, el);
+        return true;
+      }
+    }
+    return false;
+  };
+}
+
+function makeEventsSelector(rootElement$, namespace) {
+  return function eventsSelector(type) {
+    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+    if (typeof type !== "string") {
+      throw new Error("DOM driver's events() expects argument to be a " + "string representing the event type to listen for.");
+    }
+    var useCapture = false;
+    if (eventTypesThatDontBubble.indexOf(type) !== -1) {
+      useCapture = true;
+    }
+    if (typeof options.useCapture === "boolean") {
+      useCapture = options.useCapture;
+    }
+
+    return rootElement$.first().flatMapLatest(function (rootElement) {
+      if (!namespace || namespace.length === 0) {
+        return (0, _makeEventListener2.default)(rootElement, type, useCapture);
+      }
+      var simulateBubbling = makeSimulateBubbling(namespace, rootElement);
+      return (0, _makeEventListener2.default)(rootElement, type, useCapture).filter(simulateBubbling);
+    }).share();
+  };
+}
+
+},{"./makeEventListener":7,"./selectionScopes":9,"matches-selector":5}],9:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.makeIsStrictlyInRootScope = makeIsStrictlyInRootScope;
+function makeIsStrictlyInRootScope(namespace) {
+  var classIsForeign = function classIsForeign(c) {
+    var matched = c.match(/cycle-scope-(\S+)/);
+    return matched && namespace.indexOf("." + c) === -1;
+  };
+  var classIsDomestic = function classIsDomestic(c) {
+    var matched = c.match(/cycle-scope-(\S+)/);
+    return matched && namespace.indexOf("." + c) !== -1;
+  };
+  return function isStrictlyInRootScope(leaf) {
+    var some = Array.prototype.some;
+    var split = String.prototype.split;
+    for (var el = leaf; el; el = el.parentElement) {
+      var classList = el.classList || split.call(el.className, " ");
+      if (some.call(classList, classIsDomestic)) {
+        return true;
+      }
+      if (some.call(classList, classIsForeign)) {
+        return false;
+      }
+    }
+    return true;
+  };
+}
+
+},{}],10:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
+
+exports.default = h;
 
 var _lodash = require("lodash.flatten");
 
@@ -1458,9 +1583,7 @@ function h(vnodeSelector, properties) {
   return { vnodeSelector: vnodeSelector, properties: properties, children: children, text: text, domNode: null };
 }
 
-exports.default = h;
-
-},{"lodash.flatten":2}],9:[function(require,module,exports){
+},{"lodash.flatten":2}],11:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1690,7 +1813,7 @@ exports.makeDOMDriver = _makeDOMDriver.makeDOMDriver;
 exports.mockDOMSource = _mockDOMSource.mockDOMSource;
 exports.makeHTMLDriver = _makeHTMLDriver.makeHTMLDriver;
 
-},{"./hyperscript":8,"./makeDOMDriver":11,"./makeHTMLDriver":12,"./mockDOMSource":13,"hyperscript-helpers":1}],10:[function(require,module,exports){
+},{"./hyperscript":10,"./makeDOMDriver":13,"./makeHTMLDriver":14,"./mockDOMSource":15,"hyperscript-helpers":1}],12:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1714,7 +1837,7 @@ function isolateSink(sink$, scope) {
   });
 }
 
-},{"./utils":16}],11:[function(require,module,exports){
+},{"./utils":17}],13:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1726,13 +1849,32 @@ var _maquette = require("maquette");
 
 var _utils = require("./utils");
 
-var _transposition = require("./transposition");
+var _isolation = require("./isolation");
 
-var _isolate = require("./isolate");
+var _transposeVTree = require("./transposeVTree");
 
-var _select = require("./select");
+var _transposeVTree2 = _interopRequireDefault(_transposeVTree);
 
-var _events = require("./events");
+var _makeElementSelector = require("./dom/makeElementSelector");
+
+var _makeElementSelector2 = _interopRequireDefault(_makeElementSelector);
+
+var _makeEventsSelector = require("./dom/makeEventsSelector");
+
+var _makeEventsSelector2 = _interopRequireDefault(_makeEventsSelector);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function domSelectorParser(selectors) {
+  var domElement = typeof selectors === "string" ? document.querySelector(selectors) : selectors;
+
+  if (typeof domElement === "string" && domElement === null) {
+    throw new Error("Cannot render into unknown element `" + selectors + "`");
+  } else if (!isElement(domElement)) {
+    throw new Error("Given container is neither a DOM element nor a selector string.");
+  }
+  return domElement;
+}
 
 function checkDOMDriverInput(view$) {
   if (!(0, _utils.isObservable)(view$)) {
@@ -1754,7 +1896,7 @@ function makeDOMDriver(container) {
   var _ref$onError = _ref.onError;
   var onError = _ref$onError === undefined ? defaultOnErrorFn : _ref$onError;
 
-  var rootElement = (0, _utils.domSelectorParser)(container);
+  var rootElement = domSelectorParser(container);
 
   if (typeof onError !== "function") {
     throw new Error("You provided an 'onError' to makeDOMDriver but it was " + "not a function. It should be a callback function to handle errors.");
@@ -1774,7 +1916,7 @@ function makeDOMDriver(container) {
       previousVtree = vtree;
     }
 
-    var rootElement$ = view$.flatMapLatest(_transposition.transposeVTree).do(updateProjection).map(function (_ref2) {
+    var rootElement$ = view$.flatMapLatest(_transposeVTree2.default).do(updateProjection).map(function (_ref2) {
       var domNode = _ref2.domNode;
       return domNode.parentNode;
     }) // Return the container element
@@ -1785,13 +1927,13 @@ function makeDOMDriver(container) {
     return {
       observable: rootElement$,
       namespace: [],
-      select: (0, _select.makeElementSelector)(rootElement$),
-      events: (0, _events.makeEventsSelector)(rootElement$),
+      select: (0, _makeElementSelector2.default)(rootElement$),
+      events: (0, _makeEventsSelector2.default)(rootElement$),
       dispose: function dispose() {
         return disposable.dispose();
       },
-      isolateSink: _isolate.isolateSink,
-      isolateSource: _isolate.isolateSource
+      isolateSink: _isolation.isolateSink,
+      isolateSource: _isolation.isolateSource
     };
   }
 
@@ -1800,7 +1942,7 @@ function makeDOMDriver(container) {
 
 exports.makeDOMDriver = makeDOMDriver;
 
-},{"./events":6,"./isolate":10,"./select":14,"./transposition":15,"./utils":16,"maquette":4}],12:[function(require,module,exports){
+},{"./dom/makeElementSelector":6,"./dom/makeEventsSelector":8,"./isolation":12,"./transposeVTree":16,"./utils":17,"maquette":4}],14:[function(require,module,exports){
 (function (global){
 "use strict";
 
@@ -1813,7 +1955,9 @@ var _rx = (typeof window !== "undefined" ? window['Rx'] : typeof global !== "und
 
 var _rx2 = _interopRequireDefault(_rx);
 
-var _transposition = require("./transposition");
+var _transposeVTree = require("./transposeVTree");
+
+var _transposeVTree2 = _interopRequireDefault(_transposeVTree);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -1937,7 +2081,7 @@ function makeHTMLDriver() {
   }
 
   return function htmlDriver(vtree$) {
-    var output$ = vtree$.flatMapLatest(_transposition.transposeVTree).last().map(vnodeToHTML);
+    var output$ = vtree$.flatMapLatest(_transposeVTree2.default).last().map(vnodeToHTML);
     output$.select = makeBogusSelect();
     return output$;
   };
@@ -1946,7 +2090,7 @@ function makeHTMLDriver() {
 exports.makeHTMLDriver = makeHTMLDriver;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transposition":15}],13:[function(require,module,exports){
+},{"./transposeVTree":16}],15:[function(require,module,exports){
 (function (global){
 "use strict";
 
@@ -2014,131 +2158,14 @@ function mockDOMSource() {
 exports.mockDOMSource = mockDOMSource;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],14:[function(require,module,exports){
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.makeIsStrictlyInRootScope = exports.makeElementSelector = undefined;
-
-var _events = require("./events");
-
-var _isolate = require("./isolate");
-
-function makeIsStrictlyInRootScope(namespace) {
-  var classIsForeign = function classIsForeign(c) {
-    var matched = c.match(/cycle-scope-(\S+)/);
-    return matched && namespace.indexOf("." + c) === -1;
-  };
-  var classIsDomestic = function classIsDomestic(c) {
-    var matched = c.match(/cycle-scope-(\S+)/);
-    return matched && namespace.indexOf("." + c) !== -1;
-  };
-  return function isStrictlyInRootScope(leaf) {
-    var some = Array.prototype.some;
-    var split = String.prototype.split;
-    for (var el = leaf; el; el = el.parentElement) {
-      var classList = el.classList || split.call(el.className, " ");
-      if (some.call(classList, classIsDomestic)) {
-        return true;
-      }
-      if (some.call(classList, classIsForeign)) {
-        return false;
-      }
-    }
-    return true;
-  };
-}
-
-var isValidString = function isValidString(param) {
-  return typeof param === "string" && param.length > 0;
-};
-
-var contains = function contains(str, match) {
-  return str.indexOf(match) > -1;
-};
-
-var isNotTagName = function isNotTagName(param) {
-  return isValidString(param) && contains(param, ".") || contains(param, "#") || contains(param, ":");
-};
-
-function sortNamespace(a, b) {
-  if (isNotTagName(a) && isNotTagName(b)) {
-    return 0;
-  }
-  return isNotTagName(a) ? 1 : -1;
-}
-
-function removeDuplicates(arr) {
-  var newArray = [];
-  arr.forEach(function (element) {
-    if (newArray.indexOf(element) === -1) {
-      newArray.push(element);
-    }
-  });
-  return newArray;
-}
-
-var getScope = function getScope(namespace) {
-  return namespace.filter(function (c) {
-    return c.indexOf(".cycle-scope") > -1;
-  });
-};
-
-function makeFindElements(namespace) {
-  return function findElements(rootElement) {
-    if (namespace.join("") === "") {
-      return rootElement;
-    }
-    var slice = Array.prototype.slice;
-
-    var scope = getScope(namespace);
-    // Uses global selector && is isolated
-    if (namespace.indexOf("*") > -1 && scope.length > 0) {
-      // grab top-level boundary of scope
-      var topNode = rootElement.querySelector(scope.join(" "));
-      // grab all children
-      var childNodes = topNode.getElementsByTagName("*");
-      return removeDuplicates([topNode].concat(slice.call(childNodes))).filter(makeIsStrictlyInRootScope(namespace));
-    }
-
-    return removeDuplicates(slice.call(rootElement.querySelectorAll(namespace.join(" "))).concat(slice.call(rootElement.querySelectorAll(namespace.join(""))))).filter(makeIsStrictlyInRootScope(namespace));
-  };
-}
-
-function makeElementSelector(rootElement$) {
-  return function elementSelector(selector) {
-    if (typeof selector !== "string") {
-      throw new Error("DOM driver's select() expects the argument to be a " + "string as a CSS selector");
-    }
-
-    var namespace = this.namespace;
-    var trimmedSelector = selector.trim();
-    var childNamespace = trimmedSelector === ":root" ? namespace : namespace.concat(trimmedSelector).sort(sortNamespace);
-
-    return {
-      observable: rootElement$.map(makeFindElements(childNamespace)),
-      namespace: childNamespace,
-      select: makeElementSelector(rootElement$),
-      events: (0, _events.makeEventsSelector)(rootElement$, childNamespace),
-      isolateSource: _isolate.isolateSource,
-      isolateSink: _isolate.isolateSink
-    };
-  };
-}
-
-exports.makeElementSelector = makeElementSelector;
-exports.makeIsStrictlyInRootScope = makeIsStrictlyInRootScope;
-
-},{"./events":6,"./isolate":10}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (global){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.transposeVTree = undefined;
+exports.default = transposeVTree;
 
 var _rx = (typeof window !== "undefined" ? window['Rx'] : typeof global !== "undefined" ? global['Rx'] : null);
 
@@ -2170,10 +2197,8 @@ function transposeVTree(vtree) {
   throw new Error("Unhandled vTree Value");
 }
 
-exports.transposeVTree = transposeVTree;
-
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./utils":16}],16:[function(require,module,exports){
+},{"./utils":17}],17:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2184,7 +2209,6 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 
 exports.isObservable = isObservable;
 exports.isElement = isElement;
-exports.domSelectorParser = domSelectorParser;
 var SCOPE_PREFIX = exports.SCOPE_PREFIX = "cycle-scope-";
 
 function isObservable(obj) {
@@ -2199,16 +2223,5 @@ function isElement(obj) {
   return obj && (typeof obj === "undefined" ? "undefined" : _typeof(obj)) === "object" && (obj.nodeType === 1 || obj.nodeType === 11) && typeof obj.nodeName === "string";
 }
 
-function domSelectorParser(selectors) {
-  var domElement = typeof selectors === "string" ? document.querySelector(selectors) : selectors;
-
-  if (typeof domElement === "string" && domElement === null) {
-    throw new Error("Cannot render into unknown element `" + selectors + "`");
-  } else if (!isElement(domElement)) {
-    throw new Error("Given container is neither a DOM element nor a selector string.");
-  }
-  return domElement;
-}
-
-},{}]},{},[9])(9)
+},{}]},{},[11])(11)
 });

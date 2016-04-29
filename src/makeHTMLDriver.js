@@ -1,5 +1,5 @@
 import Rx from "rx";
-import { transposeVTree } from "./transposition";
+import transposeVTree from "./transposeVTree";
 
 const VOID_ELEMENTS = [
   "area",

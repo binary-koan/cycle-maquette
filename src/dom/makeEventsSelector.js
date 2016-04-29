@@ -1,11 +1,10 @@
-import { fromEvent } from "./fromEvent";
-import { makeIsStrictlyInRootScope } from "./select";
+import makeEventListener from "./makeEventListener";
+import { makeIsStrictlyInRootScope } from "./selectionScopes";
 
 let matchesSelector;
-
 try {
   matchesSelector = require("matches-selector");
-} catch (e) {
+} catch (_) {
   matchesSelector = () => {};
 }
 
@@ -86,7 +85,7 @@ function makeSimulateBubbling(namespace, rootEl) {
   };
 }
 
-function makeEventsSelector(rootElement$, namespace) {
+export default function makeEventsSelector(rootElement$, namespace) {
   return function eventsSelector(type, options = {}) {
     if (typeof type !== "string") {
       throw new Error("DOM driver's events() expects argument to be a " +
@@ -104,14 +103,11 @@ function makeEventsSelector(rootElement$, namespace) {
       .first()
       .flatMapLatest(rootElement => {
         if (!namespace || namespace.length === 0) {
-          return fromEvent(rootElement, type, useCapture);
+          return makeEventListener(rootElement, type, useCapture);
         }
         const simulateBubbling = makeSimulateBubbling(namespace, rootElement);
-        return fromEvent(rootElement, type, useCapture)
-          .filter(simulateBubbling);
+        return makeEventListener(rootElement, type, useCapture).filter(simulateBubbling);
       })
       .share();
   };
 }
-
-export { makeEventsSelector };

@@ -34,7 +34,7 @@ function createEventListener({ element, eventName, handler, useCapture }) {
   return disposables;
 }
 
-function fromEvent(element, eventName, useCapture = false) {
+export default function makeEventListener(element, eventName, useCapture = false) {
   return new AnonymousObservable((observer) =>
     createEventListener({
       element,
@@ -46,5 +46,3 @@ function fromEvent(element, eventName, useCapture = false) {
     })
   ).share();
 }
-
-export { fromEvent };

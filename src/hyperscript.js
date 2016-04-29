@@ -15,7 +15,7 @@ function resolveChildren(children) {
   );
 }
 
-function h(vnodeSelector, properties, ...children) {
+export default function h(vnodeSelector, properties, ...children) {
   let text;
 
   if (typeof(vnodeSelector) !== "string") {
@@ -36,5 +36,3 @@ function h(vnodeSelector, properties, ...children) {
 
   return { vnodeSelector, properties, children, text, domNode: null };
 }
-
-export default h;
