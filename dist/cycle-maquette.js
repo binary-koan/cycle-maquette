@@ -1248,25 +1248,6 @@ var _isolation = require("../isolation");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var isValidString = function isValidString(param) {
-  return typeof param === "string" && param.length > 0;
-};
-
-var contains = function contains(str, match) {
-  return str.indexOf(match) > -1;
-};
-
-var isNotTagName = function isNotTagName(param) {
-  return isValidString(param) && contains(param, ".") || contains(param, "#") || contains(param, ":");
-};
-
-function sortNamespace(a, b) {
-  if (isNotTagName(a) && isNotTagName(b)) {
-    return 0;
-  }
-  return isNotTagName(a) ? 1 : -1;
-}
-
 function removeDuplicates(arr) {
   var newArray = [];
   arr.forEach(function (element) {
@@ -1285,7 +1266,7 @@ var getScope = function getScope(namespace) {
 
 function makeFindElements(namespace) {
   return function findElements(rootElement) {
-    if (namespace.join("") === "") {
+    if ((0, _selectionScopes.topLevelSelector)(namespace) === "") {
       return rootElement;
     }
     var slice = Array.prototype.slice;
@@ -1294,13 +1275,13 @@ function makeFindElements(namespace) {
     // Uses global selector && is isolated
     if (namespace.indexOf("*") > -1 && scope.length > 0) {
       // grab top-level boundary of scope
-      var topNode = rootElement.querySelector(scope.join(" "));
+      var topNode = rootElement.querySelector((0, _selectionScopes.descendantSelector)(scope));
       // grab all children
       var childNodes = topNode.getElementsByTagName("*");
       return removeDuplicates([topNode].concat(slice.call(childNodes))).filter((0, _selectionScopes.makeIsStrictlyInRootScope)(namespace));
     }
 
-    return removeDuplicates(slice.call(rootElement.querySelectorAll(namespace.join(" "))).concat(slice.call(rootElement.querySelectorAll(namespace.join(""))))).filter((0, _selectionScopes.makeIsStrictlyInRootScope)(namespace));
+    return removeDuplicates(slice.call(rootElement.querySelectorAll((0, _selectionScopes.descendantSelector)(namespace))).concat(slice.call(rootElement.querySelectorAll((0, _selectionScopes.topLevelSelector)(namespace))))).filter((0, _selectionScopes.makeIsStrictlyInRootScope)(namespace));
   };
 }
 
@@ -1312,7 +1293,7 @@ function makeElementSelector(rootElement$) {
 
     var namespace = this.namespace;
     var trimmedSelector = selector.trim();
-    var childNamespace = trimmedSelector === ":root" ? namespace : namespace.concat(trimmedSelector).sort(sortNamespace);
+    var childNamespace = trimmedSelector === ":root" ? namespace : namespace.concat(trimmedSelector);
 
     return {
       observable: rootElement$.map(makeFindElements(childNamespace)),
@@ -1406,10 +1387,6 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = makeEventsSelector;
 
-var _matchesSelector = require("matches-selector");
-
-var _matchesSelector2 = _interopRequireDefault(_matchesSelector);
-
 var _makeEventListener = require("./makeEventListener");
 
 var _makeEventListener2 = _interopRequireDefault(_makeEventListener);
@@ -1417,6 +1394,13 @@ var _makeEventListener2 = _interopRequireDefault(_makeEventListener);
 var _selectionScopes = require("./selectionScopes");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var matchesSelector = void 0;
+try {
+  matchesSelector = require("matches-selector");
+} catch (_) {
+  matchesSelector = function matchesSelector() {};
+}
 
 var eventTypesThatDontBubble = ["load", "unload", "focus", "blur", "mouseenter", "mouseleave", "submit", "change", "reset", "timeupdate", "playing", "waiting", "seeking", "seeked", "ended", "loadedmetadata", "loadeddata", "canplay", "canplaythrough", "durationchange", "play", "pause", "ratechange", "volumechange", "suspend", "emptied", "stalled"];
 
@@ -1447,8 +1431,8 @@ function mutateEventCurrentTarget(event, currentTargetElement) {
 
 function makeSimulateBubbling(namespace, rootEl) {
   var isStrictlyInRootScope = (0, _selectionScopes.makeIsStrictlyInRootScope)(namespace);
-  var descendantSel = namespace.join(" ");
-  var topSel = namespace.join("");
+  var descendantSel = (0, _selectionScopes.descendantSelector)(namespace);
+  var topSel = (0, _selectionScopes.topLevelSelector)(namespace);
   var roof = rootEl.parentElement;
 
   return function simulateBubbling(ev) {
@@ -1460,7 +1444,7 @@ function makeSimulateBubbling(namespace, rootEl) {
       if (!isStrictlyInRootScope(el)) {
         continue;
       }
-      if ((0, _matchesSelector2.default)(el, descendantSel) || (0, _matchesSelector2.default)(el, topSel)) {
+      if (matchesSelector(el, descendantSel) || matchesSelector(el, topSel)) {
         mutateEventCurrentTarget(ev, el);
         return true;
       }
@@ -1501,6 +1485,16 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.makeIsStrictlyInRootScope = makeIsStrictlyInRootScope;
+exports.topLevelSelector = topLevelSelector;
+exports.descendantSelector = descendantSelector;
+function last(collection) {
+  return collection[collection.length - 1];
+}
+
+function hasTagName(selector) {
+  return selector && selector[0] && selector[0] !== "#" && selector[0] !== "." && selector[0] !== ":";
+}
+
 function makeIsStrictlyInRootScope(namespace) {
   var classIsForeign = function classIsForeign(c) {
     var matched = c.match(/cycle-scope-(\S+)/);
@@ -1524,6 +1518,29 @@ function makeIsStrictlyInRootScope(namespace) {
     }
     return true;
   };
+}
+
+// The idea of this function is to create a selector matching the smallest possible DOM tree
+// specified by `namespace`. For example, DOM.select("a").select(".test") should match "a.test"
+// but DOM.select("p").select("a.test") should match "p a.test"
+function topLevelSelector(namespace) {
+  var mergedNamespaces = [""];
+
+  namespace.forEach(function (selector) {
+    if (hasTagName(last(mergedNamespaces)) && hasTagName(selector)) {
+      mergedNamespaces.push(selector);
+    } else if (hasTagName(selector)) {
+      mergedNamespaces.push(selector + mergedNamespaces.pop());
+    } else {
+      mergedNamespaces.push(mergedNamespaces.pop() + selector);
+    }
+  });
+
+  return mergedNamespaces.join(" ");
+}
+
+function descendantSelector(namespace) {
+  return namespace.join(" ");
 }
 
 },{}],10:[function(require,module,exports){
@@ -1870,7 +1887,7 @@ function domSelectorParser(selectors) {
 
   if (typeof domElement === "string" && domElement === null) {
     throw new Error("Cannot render into unknown element `" + selectors + "`");
-  } else if (!isElement(domElement)) {
+  } else if (!(0, _utils.isElement)(domElement)) {
     throw new Error("Given container is neither a DOM element nor a selector string.");
   }
   return domElement;
@@ -1906,14 +1923,12 @@ function makeDOMDriver(container) {
     checkDOMDriverInput(view$);
 
     var projection = void 0;
-    var previousVtree = void 0;
     function updateProjection(vtree) {
       if (projection) {
         projection.update(vtree);
       } else {
         projection = _maquette.dom.append(rootElement, vtree);
       }
-      previousVtree = vtree;
     }
 
     var rootElement$ = view$.flatMapLatest(_transposeVTree2.default).do(updateProjection).map(function (_ref2) {
