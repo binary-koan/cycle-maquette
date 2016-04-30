@@ -1,5 +1,5 @@
 import makeEventListener from "./makeEventListener";
-import { makeIsStrictlyInRootScope } from "./selectionScopes";
+import { makeIsStrictlyInRootScope, topLevelSelector, descendantSelector } from "./selectionScopes";
 
 let matchesSelector;
 try {
@@ -63,8 +63,8 @@ function mutateEventCurrentTarget(event, currentTargetElement) {
 
 function makeSimulateBubbling(namespace, rootEl) {
   const isStrictlyInRootScope = makeIsStrictlyInRootScope(namespace);
-  const descendantSel = namespace.join(" ");
-  const topSel = namespace.join("");
+  const descendantSel = descendantSelector(namespace);
+  const topSel = topLevelSelector(namespace);
   const roof = rootEl.parentElement;
 
   return function simulateBubbling(ev) {

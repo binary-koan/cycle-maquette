@@ -1,21 +1,6 @@
 import makeEventsSelector from "./makeEventsSelector";
-import { makeIsStrictlyInRootScope } from "./selectionScopes";
+import { makeIsStrictlyInRootScope, topLevelSelector, descendantSelector } from "./selectionScopes";
 import { isolateSource, isolateSink } from "../isolation";
-
-const isValidString = param => typeof param === `string` && param.length > 0;
-
-const contains = (str, match) => str.indexOf(match) > -1;
-
-const isNotTagName = param =>
-    isValidString(param) && contains(param, `.`) ||
-    contains(param, `#`) || contains(param, `:`);
-
-function sortNamespace(a, b) {
-  if (isNotTagName(a) && isNotTagName(b)) {
-    return 0;
-  }
-  return isNotTagName(a) ? 1 : -1;
-}
 
 function removeDuplicates(arr) {
   const newArray = [];
@@ -32,7 +17,7 @@ const getScope = namespace =>
 
 function makeFindElements(namespace) {
   return function findElements(rootElement) {
-    if (namespace.join(``) === ``) {
+    if (topLevelSelector(namespace) === ``) {
       return rootElement;
     }
     const slice = Array.prototype.slice;
@@ -41,7 +26,7 @@ function makeFindElements(namespace) {
     // Uses global selector && is isolated
     if (namespace.indexOf(`*`) > -1 && scope.length > 0) {
       // grab top-level boundary of scope
-      const topNode = rootElement.querySelector(scope.join(` `));
+      const topNode = rootElement.querySelector(descendantSelector(scope));
       // grab all children
       const childNodes = topNode.getElementsByTagName(`*`);
       return removeDuplicates([topNode].concat(slice.call(childNodes)))
@@ -49,8 +34,8 @@ function makeFindElements(namespace) {
     }
 
     return removeDuplicates(
-        slice.call(rootElement.querySelectorAll(namespace.join(` `)))
-        .concat(slice.call(rootElement.querySelectorAll(namespace.join(``))))
+        slice.call(rootElement.querySelectorAll(descendantSelector(namespace)))
+        .concat(slice.call(rootElement.querySelectorAll(topLevelSelector(namespace))))
       ).filter(makeIsStrictlyInRootScope(namespace));
   };
 }
@@ -66,7 +51,7 @@ export default function makeElementSelector(rootElement$) {
     const trimmedSelector = selector.trim();
     const childNamespace = trimmedSelector === `:root` ?
       namespace :
-      namespace.concat(trimmedSelector).sort(sortNamespace);
+      namespace.concat(trimmedSelector);
 
     return {
       observable: rootElement$.map(makeFindElements(childNamespace)),
